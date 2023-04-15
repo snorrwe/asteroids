@@ -160,7 +160,7 @@ fn handle_collisions(
     collisions: Res<Collisions>,
     mut cmd: Commands,
     q_asteroid: Query<(&Velocity, &GlobalTransform)>,
-    q_pos: Query<&GlobalTransform>,
+    q_camera_pos: Query<&GlobalTransform, With<Camera3d>>,
     mut score: ResMut<Score>,
     sprites: Res<Sprites>,
     thrusters: Query<EntityId, With<Thrust>>,
@@ -196,7 +196,7 @@ fn handle_collisions(
         if tag1 == ASTEROID_TAG && tag2 == PLAYER_TAG {
             cmd.delete(entity_1);
             cmd.delete(entity_2);
-            let pos = q_pos.fetch(entity_2).map(|tr| tr.0.pos).unwrap_or_default();
+            let pos = q_camera_pos.single().map(|tr| tr.0.pos).unwrap_or_default();
             game_over(&sprites, cmd.spawn(), pos);
             for id in thrusters.iter() {
                 cmd.delete(id);
@@ -570,7 +570,7 @@ fn load_sprite_sheet(
 }
 
 fn restart_system(
-    q_game_over: Query<&EntityId, With<GameOver>>,
+    q_game_over: Query<EntityId, With<GameOver>>,
     mut cmd: Commands,
     assets: Res<Sprites>,
     inputs: Res<KeyBoardInputs>,
@@ -579,7 +579,7 @@ fn restart_system(
     for id in q_game_over.iter() {
         for key in inputs.just_pressed.iter() {
             if let VirtualKeyCode::Space = key {
-                cmd.delete(*id);
+                cmd.delete(id);
                 spawn_player(cmd.spawn(), assets.player.clone());
                 score.score.0 = 0;
             }
