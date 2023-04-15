@@ -6,7 +6,7 @@ use std::num::Wrapping;
 use std::time::Duration;
 
 use collision::{aabb_bundle, CollisionEvent, CollisionPlugin, CollisionTag, Collisions, AABB};
-use engine::assets::Handle;
+use engine::assets::{Assets, Handle};
 use engine::audio::Audio;
 use engine::camera::Camera3d;
 use engine::cecs::commands::EntityCommands;
@@ -64,20 +64,18 @@ struct PlayerCamera {
     follow_speed: f32,
 }
 
-struct AsteroidAssets {
-    pub sheet: Handle<SpriteSheet>,
-    pub n: u32,
-}
-
-struct BulletAssets {
-    pub sheet: Handle<SpriteSheet>,
-    pub n: u32,
-}
-
 struct Thrust;
-struct ThrustAssets {
-    pub sheet: Handle<SpriteSheet>,
-    pub n: u32,
+
+#[derive(Default)]
+struct Sprites {
+    pub thrust_sheet: Handle<SpriteSheet>,
+    pub thrust_n: u32,
+    pub bullet_sheet: Handle<SpriteSheet>,
+    pub bullet_n: u32,
+    pub asteroid_sheet: Handle<SpriteSheet>,
+    pub asteroid_n: u32,
+    pub game_over_sheet: Handle<SpriteSheet>,
+    pub player: Handle<SpriteSheet>,
 }
 
 fn rotator(dt: Res<DeltaTime>, mut q: Query<&mut transform::Transform, With<Asteroid>>) {
@@ -106,13 +104,7 @@ fn update_lifetime(mut cmd: Commands, mut q: Query<(EntityId, &mut LifeTime)>, d
     }
 }
 
-fn split_asteroid(
-    cmd: &mut Commands,
-    v: &Velocity,
-    tr: &Transform,
-    assets: &AsteroidAssets,
-    scale: f32,
-) {
+fn split_asteroid(cmd: &mut Commands, v: &Velocity, tr: &Transform, assets: &Sprites, scale: f32) {
     let vel_mag = v.0.length() * 1.05;
     let v = v.0.normalize_or_zero();
     let mut tr = tr.clone();
@@ -124,8 +116,8 @@ fn split_asteroid(
         spawn_asteroid(
             cmd.spawn(),
             tr.clone(),
-            assets.sheet.clone(),
-            fastrand::u32(..assets.n),
+            assets.asteroid_sheet.clone(),
+            fastrand::u32(..assets.asteroid_n),
             Velocity(v),
         );
     }
@@ -136,8 +128,8 @@ fn split_asteroid(
         spawn_asteroid(
             cmd.spawn(),
             tr,
-            assets.sheet.clone(),
-            fastrand::u32(..assets.n),
+            assets.asteroid_sheet.clone(),
+            fastrand::u32(..assets.asteroid_n),
             Velocity(v),
         );
     }
@@ -148,7 +140,7 @@ fn handle_collisions(
     mut cmd: Commands,
     q_asteroid: Query<(&Velocity, &GlobalTransform)>,
     mut score: ResMut<Score>,
-    asteroid_assets: Res<AsteroidAssets>,
+    asteroid_assets: Res<Sprites>,
 ) {
     for event in collisions.0.iter() {
         let CollisionEvent {
@@ -251,7 +243,7 @@ fn spawn_asteroid(
 fn spawn_asteroids_system(
     q_asteroid: Query<&(), With<Asteroid>>,
     mut cmd: Commands,
-    assets: Res<AsteroidAssets>,
+    assets: Res<Sprites>,
     q_player: Query<&GlobalTransform, With<Player>>,
 ) {
     let count = q_asteroid.count();
@@ -285,39 +277,11 @@ fn spawn_asteroids_system(
                 rot,
                 scale: Vec3::ONE,
             },
-            assets.sheet.clone(),
-            fastrand::u32(0..assets.n),
+            assets.asteroid_sheet.clone(),
+            fastrand::u32(0..assets.asteroid_n),
             Velocity(vel),
         );
     }
-}
-
-fn setup_bullets(
-    mut cmd: Commands,
-    graphics_state: Res<GraphicsState>,
-    mut assets: ResMut<assets::Assets<sprite_renderer::SpriteSheet>>,
-) {
-    // init sprite
-    let bytes = include_bytes!("../assets/bullet.png");
-    let graphics_state: &GraphicsState = &graphics_state;
-    let assets: &mut assets::Assets<sprite_renderer::SpriteSheet> = &mut assets;
-    let texture = renderer::texture::Texture::from_bytes(
-        graphics_state.device(),
-        graphics_state.queue(),
-        bytes,
-        "bullet",
-    )
-    .unwrap();
-    let n = 2;
-    let sprite_sheet =
-        sprite_renderer::SpriteSheet::from_texture(Vec2::ZERO, Vec2::splat(128.0), n, texture);
-
-    let handle = assets.insert(sprite_sheet);
-
-    cmd.insert_resource(BulletAssets {
-        sheet: handle.clone(),
-        n,
-    });
 }
 
 fn player_rotation_system(
@@ -352,7 +316,7 @@ fn player_thrust_system(
     inputs: Res<KeyBoardInputs>,
     mut q: Query<(EntityId, &transform::Transform, &mut Velocity, &mut Player)>,
     mut cmd: Commands,
-    thruster: Res<ThrustAssets>,
+    sprites: Res<Sprites>,
     thrusters: Query<EntityId, With<Thrust>>,
 ) {
     let dt = dt.0.as_secs_f32();
@@ -376,11 +340,11 @@ fn player_thrust_system(
                         Thrust,
                         UniformAnimation {
                             timer: Timer::new(Duration::from_millis(100), true),
-                            n: thruster.n,
+                            n: sprites.thrust_n,
                         },
                     ))
                     .insert_bundle(sprite_renderer::sprite_sheet_bundle(
-                        thruster.sheet.clone(),
+                        sprites.thrust_sheet.clone(),
                         None,
                     ));
                 });
@@ -423,7 +387,7 @@ fn fire_system(
     inputs: Res<KeyBoardInputs>,
     audio: Res<assets::Assets<Audio>>,
     am: Res<engine::audio::AudioManager>,
-    bullet_assets: Res<BulletAssets>,
+    sprites: Res<Sprites>,
     mut cmd: Commands,
     q_player: Query<(&GlobalTransform, &Player)>,
 ) {
@@ -441,7 +405,7 @@ fn fire_system(
 
                 cmd.spawn()
                     .insert_bundle(sprite_renderer::sprite_sheet_bundle(
-                        bullet_assets.sheet.clone(),
+                        sprites.bullet_sheet.clone(),
                         None,
                     ))
                     .insert_bundle((
@@ -449,7 +413,7 @@ fn fire_system(
                         Bullet,
                         UniformAnimation {
                             timer: Timer::new(Duration::from_millis(100), true),
-                            n: bullet_assets.n,
+                            n: sprites.bullet_n,
                         },
                         Velocity(vel.truncate()),
                     ))
@@ -467,94 +431,9 @@ fn fire_system(
     }
 }
 
-fn setup_asteroids(
-    mut cmd: Commands,
-    graphics_state: Res<GraphicsState>,
-    mut assets: ResMut<assets::Assets<sprite_renderer::SpriteSheet>>,
-) {
-    // init sprite
-    let bytes = include_bytes!("../assets/asteroids.png");
-    let n = 2;
-    let graphics_state: &GraphicsState = &graphics_state;
-    let assets: &mut assets::Assets<sprite_renderer::SpriteSheet> = &mut assets;
-    let texture = renderer::texture::Texture::from_bytes(
-        graphics_state.device(),
-        graphics_state.queue(),
-        bytes,
-        "asteroids",
-    )
-    .unwrap();
-    let sprite_sheet =
-        sprite_renderer::SpriteSheet::from_texture(Vec2::ZERO, Vec2::splat(128.0), n, texture);
-
-    let handle = assets.insert(sprite_sheet);
-
-    cmd.insert_resource(AsteroidAssets {
-        sheet: handle.clone(),
-        n,
-    });
-}
-
-fn setup_player(
-    mut cmd: Commands,
-    graphics_state: Res<GraphicsState>,
-    mut assets: ResMut<assets::Assets<sprite_renderer::SpriteSheet>>,
-) {
-    let bytes = include_bytes!("../assets/ship.png");
-    let box_size = Vec2::new(32.0, 45.0);
-    let sprite_handle = {
-        let graphics_state: &GraphicsState = &graphics_state;
-        let assets: &mut assets::Assets<sprite_renderer::SpriteSheet> = &mut assets;
-
-        // setup thruster
-        {
-            let bytes = include_bytes!("../assets/flame.png");
-            let box_size = Vec2::new(32.0, 32.0);
-            let texture = renderer::texture::Texture::from_bytes(
-                graphics_state.device(),
-                graphics_state.queue(),
-                bytes,
-                "thrust",
-            )
-            .unwrap();
-            let n = 4;
-            let sprite_sheet =
-                sprite_renderer::SpriteSheet::from_texture(Vec2::ZERO, box_size, n, texture);
-
-            let handle = assets.insert(sprite_sheet);
-            cmd.insert_resource(ThrustAssets { sheet: handle, n });
-        }
-
-        let texture = renderer::texture::Texture::from_bytes(
-            graphics_state.device(),
-            graphics_state.queue(),
-            bytes,
-            "ship",
-        )
-        .unwrap();
-        let sprite_sheet =
-            sprite_renderer::SpriteSheet::from_texture(Vec2::ZERO, box_size, 1, texture);
-
-        assets.insert(sprite_sheet)
-    };
+fn setup_player(mut cmd: Commands, assets: Res<Sprites>) {
     // player
-    cmd.spawn()
-        .insert_bundle(transform::transform_bundle(
-            transform::Transform::from_scale(Vec3::splat(0.5)),
-        ))
-        .insert_bundle(sprite_renderer::sprite_sheet_bundle(
-            sprite_handle.clone(),
-            None,
-        ))
-        .insert_bundle(aabb_bundle(
-            AABB::around_origin(Vec2::splat(0.5)),
-            PLAYER_TAG,
-        ))
-        .insert_bundle((
-            Player::default(),
-            Velocity::default(),
-            RotationTime(Duration::default()),
-        ));
+    spawn_player(cmd.spawn(), assets.player.clone());
 
     // camera
     cmd.spawn()
@@ -569,6 +448,94 @@ fn setup_player(
             zfar: 50.0,
         }))
         .insert_bundle(transform_bundle(transform::Transform::default()));
+}
+
+fn spawn_player(cmd: &mut EntityCommands, sprite_handle: Handle<SpriteSheet>) {
+    cmd.insert_bundle(transform::transform_bundle(
+        transform::Transform::from_scale(Vec3::splat(0.5)),
+    ))
+    .insert_bundle(sprite_renderer::sprite_sheet_bundle(sprite_handle, None))
+    .insert_bundle(aabb_bundle(
+        AABB::around_origin(Vec2::splat(0.5)),
+        PLAYER_TAG,
+    ))
+    .insert_bundle((
+        Player::default(),
+        Velocity::default(),
+        RotationTime(Duration::default()),
+    ));
+}
+
+fn setup_sprite_sheets(
+    graphics_state: Res<GraphicsState>,
+    mut assets: ResMut<assets::Assets<SpriteSheet>>,
+    mut sprites: ResMut<Sprites>,
+) {
+    *sprites = Sprites {
+        bullet_sheet: load_sprite_sheet(
+            &graphics_state,
+            include_bytes!("../assets/bullet.png"),
+            Vec2::splat(128.0),
+            2,
+            "bullet",
+            &mut assets,
+        ),
+        bullet_n: 2,
+        asteroid_sheet: load_sprite_sheet(
+            &graphics_state,
+            include_bytes!("../assets/asteroids.png"),
+            Vec2::splat(128.0),
+            2,
+            "asteroids",
+            &mut assets,
+        ),
+        asteroid_n: 2,
+        game_over_sheet: load_sprite_sheet(
+            &graphics_state,
+            include_bytes!("../assets/game_over.png"),
+            Vec2::new(128.0, 32.0),
+            1,
+            "game_over",
+            &mut assets,
+        ),
+        player: load_sprite_sheet(
+            &graphics_state,
+            include_bytes!("../assets/ship.png"),
+            Vec2::new(32.0, 45.0),
+            1,
+            "ship",
+            &mut assets,
+        ),
+        thrust_sheet: load_sprite_sheet(
+            &graphics_state,
+            include_bytes!("../assets/flame.png"),
+            Vec2::splat(32.0),
+            4,
+            "flame",
+            &mut assets,
+        ),
+        thrust_n: 4,
+    };
+}
+
+fn load_sprite_sheet(
+    graphics_state: &GraphicsState,
+    bytes: &[u8],
+    box_size: Vec2,
+    num_cols: u32,
+    label: &str,
+    assets: &mut Assets<SpriteSheet>,
+) -> Handle<SpriteSheet> {
+    let texture = renderer::texture::Texture::from_bytes(
+        graphics_state.device(),
+        graphics_state.queue(),
+        bytes,
+        label,
+    )
+    .unwrap();
+    let sprite_sheet = SpriteSheet::from_texture(Vec2::ZERO, box_size, num_cols, texture);
+
+    assets.insert(sprite_sheet)
 }
 
 struct GamePlugin;
@@ -589,12 +556,12 @@ impl Plugin for GamePlugin {
 
         app.stage(Stage::PostUpdate).add_system(handle_collisions);
 
-        app.add_startup_system(setup_asteroids)
-            .add_startup_system(setup_player)
-            .add_startup_system(setup_bullets)
+        app.add_startup_system(setup_sprite_sheets)
+            .add_startup_system(setup_player.after(setup_sprite_sheets))
             .add_startup_system(setup_slash);
 
         app.insert_resource(Score { score: Wrapping(0) });
+        app.insert_resource(Sprites::default());
     }
 }
 

@@ -21,6 +21,12 @@ pub struct Handle<T> {
     weak: WeakHandle<T>,
 }
 
+impl<T> Default for Handle<T> {
+    fn default() -> Self {
+        Self::new(AssetId::MAX)
+    }
+}
+
 pub struct WeakHandle<T> {
     id: AssetId,
     references: NonNull<RefCount>,
