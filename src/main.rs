@@ -66,11 +66,6 @@ struct PlayerCamera {
 
 struct Thrust;
 
-enum GameState {
-    Playing,
-    Over,
-}
-
 #[derive(Default)]
 struct Sprites {
     pub thrust_sheet: Handle<SpriteSheet>,
@@ -172,50 +167,36 @@ fn handle_collisions(
 ) {
     for event in collisions.0.iter() {
         let CollisionEvent {
-            entity_1,
-            tag1,
-            entity_2,
-            tag2,
-        } = event;
+            mut entity_1,
+            mut tag1,
+            mut entity_2,
+            mut tag2,
+        } = *event;
         const SPLIT_SCALE: f32 = 0.8;
         // at most 3 splits
         const MIN_SCALE: f32 = SPLIT_SCALE * SPLIT_SCALE * SPLIT_SCALE;
-        if tag1 == &ASTEROID_TAG && tag2 == &BULLET_TAG {
+        if tag1 == ASTEROID_TAG && tag2 == BULLET_TAG {
+            std::mem::swap(&mut entity_1, &mut entity_2);
+            std::mem::swap(&mut tag1, &mut tag2);
+        }
+        if tag2 == ASTEROID_TAG && tag1 == BULLET_TAG {
             score.score += 1;
-            cmd.delete(*entity_1);
-            cmd.delete(*entity_2);
-            if let Some((v, tr)) = q_asteroid.fetch(*entity_1) {
+            cmd.delete(entity_1);
+            cmd.delete(entity_2);
+            if let Some((v, tr)) = q_asteroid.fetch(entity_2) {
                 if tr.0.scale.x > MIN_SCALE {
                     split_asteroid(&mut cmd, v, &tr.0, &sprites, SPLIT_SCALE);
                 }
             }
-        } else if tag2 == &ASTEROID_TAG && tag1 == &BULLET_TAG {
-            score.score += 1;
-            cmd.delete(*entity_1);
-            cmd.delete(*entity_2);
-            if let Some((v, tr)) = q_asteroid.fetch(*entity_2) {
-                if tr.0.scale.x > MIN_SCALE {
-                    split_asteroid(&mut cmd, v, &tr.0, &sprites, SPLIT_SCALE);
-                }
-            }
-        } else if tag2 == &ASTEROID_TAG && tag1 == &PLAYER_TAG {
-            cmd.delete(*entity_1);
-            cmd.delete(*entity_2);
-            let pos = q_pos
-                .fetch(*entity_1)
-                .map(|tr| tr.0.pos)
-                .unwrap_or_default();
-            game_over(&sprites, cmd.spawn(), pos);
-            for id in thrusters.iter() {
-                cmd.delete(id);
-            }
-        } else if tag1 == &ASTEROID_TAG && tag2 == &PLAYER_TAG {
-            cmd.delete(*entity_1);
-            cmd.delete(*entity_2);
-            let pos = q_pos
-                .fetch(*entity_2)
-                .map(|tr| tr.0.pos)
-                .unwrap_or_default();
+        }
+        if tag2 == ASTEROID_TAG && tag1 == PLAYER_TAG {
+            std::mem::swap(&mut entity_1, &mut entity_2);
+            std::mem::swap(&mut tag1, &mut tag2);
+        }
+        if tag1 == ASTEROID_TAG && tag2 == PLAYER_TAG {
+            cmd.delete(entity_1);
+            cmd.delete(entity_2);
+            let pos = q_pos.fetch(entity_2).map(|tr| tr.0.pos).unwrap_or_default();
             game_over(&sprites, cmd.spawn(), pos);
             for id in thrusters.iter() {
                 cmd.delete(id);
@@ -588,6 +569,24 @@ fn load_sprite_sheet(
     assets.insert(sprite_sheet)
 }
 
+fn restart_system(
+    q_game_over: Query<&EntityId, With<GameOver>>,
+    mut cmd: Commands,
+    assets: Res<Sprites>,
+    inputs: Res<KeyBoardInputs>,
+    mut score: ResMut<Score>,
+) {
+    for id in q_game_over.iter() {
+        for key in inputs.just_pressed.iter() {
+            if let VirtualKeyCode::Space = key {
+                cmd.delete(*id);
+                spawn_player(cmd.spawn(), assets.player.clone());
+                score.score.0 = 0;
+            }
+        }
+    }
+}
+
 struct GamePlugin;
 
 impl Plugin for GamePlugin {
@@ -602,6 +601,7 @@ impl Plugin for GamePlugin {
             .add_system(spawn_asteroids_system)
             .add_system(wraparound_system)
             .add_system(update_lifetime)
+            .add_system(restart_system)
             .add_system(move_system);
 
         app.stage(Stage::PostUpdate).add_system(handle_collisions);
@@ -612,7 +612,6 @@ impl Plugin for GamePlugin {
 
         app.insert_resource(Score { score: Wrapping(0) });
         app.insert_resource(Sprites::default());
-        app.insert_resource(GameState::Playing);
     }
 }
 
