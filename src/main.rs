@@ -11,7 +11,7 @@ use engine::audio::Audio;
 use engine::camera::Camera3d;
 use engine::cecs::commands::EntityCommands;
 use engine::glam::{self, Vec2, Vec3};
-use engine::renderer::sprite_renderer::{self, SpriteInstance, SpriteSheet};
+use engine::renderer::sprite_renderer::{self, sprite_sheet_bundle, SpriteInstance, SpriteSheet};
 use engine::renderer::{self, GraphicsState};
 use engine::transform::{self, transform_bundle, GlobalTransform, Transform};
 use engine::{
@@ -65,6 +65,11 @@ struct PlayerCamera {
 }
 
 struct Thrust;
+
+enum GameState {
+    Playing,
+    Over,
+}
 
 #[derive(Default)]
 struct Sprites {
@@ -135,12 +140,35 @@ fn split_asteroid(cmd: &mut Commands, v: &Velocity, tr: &Transform, assets: &Spr
     }
 }
 
+struct GameOver;
+
+fn game_over(sprites: &Sprites, cmd: &mut EntityCommands, mut pos: Vec3) {
+    // TODO: score
+    pos.z = -1.0;
+    let tr = Transform {
+        pos,
+        scale: Vec3::new(40.0, 20., 0.),
+        ..Default::default()
+    };
+    cmd.insert_bundle(transform_bundle(tr))
+        .insert_bundle(sprite_sheet_bundle(
+            sprites.game_over_sheet.clone(),
+            SpriteInstance {
+                index: 0,
+                flip: true,
+            },
+        ))
+        .insert(GameOver);
+}
+
 fn handle_collisions(
     collisions: Res<Collisions>,
     mut cmd: Commands,
     q_asteroid: Query<(&Velocity, &GlobalTransform)>,
+    q_pos: Query<&GlobalTransform>,
     mut score: ResMut<Score>,
-    asteroid_assets: Res<Sprites>,
+    sprites: Res<Sprites>,
+    thrusters: Query<EntityId, With<Thrust>>,
 ) {
     for event in collisions.0.iter() {
         let CollisionEvent {
@@ -158,7 +186,7 @@ fn handle_collisions(
             cmd.delete(*entity_2);
             if let Some((v, tr)) = q_asteroid.fetch(*entity_1) {
                 if tr.0.scale.x > MIN_SCALE {
-                    split_asteroid(&mut cmd, v, &tr.0, &asteroid_assets, SPLIT_SCALE);
+                    split_asteroid(&mut cmd, v, &tr.0, &sprites, SPLIT_SCALE);
                 }
             }
         } else if tag2 == &ASTEROID_TAG && tag1 == &BULLET_TAG {
@@ -167,8 +195,30 @@ fn handle_collisions(
             cmd.delete(*entity_2);
             if let Some((v, tr)) = q_asteroid.fetch(*entity_2) {
                 if tr.0.scale.x > MIN_SCALE {
-                    split_asteroid(&mut cmd, v, &tr.0, &asteroid_assets, SPLIT_SCALE);
+                    split_asteroid(&mut cmd, v, &tr.0, &sprites, SPLIT_SCALE);
                 }
+            }
+        } else if tag2 == &ASTEROID_TAG && tag1 == &PLAYER_TAG {
+            cmd.delete(*entity_1);
+            cmd.delete(*entity_2);
+            let pos = q_pos
+                .fetch(*entity_1)
+                .map(|tr| tr.0.pos)
+                .unwrap_or_default();
+            game_over(&sprites, cmd.spawn(), pos);
+            for id in thrusters.iter() {
+                cmd.delete(id);
+            }
+        } else if tag1 == &ASTEROID_TAG && tag2 == &PLAYER_TAG {
+            cmd.delete(*entity_1);
+            cmd.delete(*entity_2);
+            let pos = q_pos
+                .fetch(*entity_2)
+                .map(|tr| tr.0.pos)
+                .unwrap_or_default();
+            game_over(&sprites, cmd.spawn(), pos);
+            for id in thrusters.iter() {
+                cmd.delete(id);
             }
         }
     }
@@ -562,6 +612,7 @@ impl Plugin for GamePlugin {
 
         app.insert_resource(Score { score: Wrapping(0) });
         app.insert_resource(Sprites::default());
+        app.insert_resource(GameState::Playing);
     }
 }
 
