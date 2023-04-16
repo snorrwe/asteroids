@@ -99,7 +99,7 @@ jobs:
         run: |
           cd launchers/wasm
           trunk build --release
-          zip -r asteroids-${{github.ref_name}}-wasm.zip dist/
+          zip -j -r asteroids-${{github.ref_name}}-wasm.zip dist/
 
       - name: Upload to GH
         run: |
