@@ -463,6 +463,7 @@ fn fire_system(
                     .insert_bundle((
                         LifeTime(Timer::new(Duration::from_secs(5), false)),
                         Bullet,
+                        GameEntity,
                         UniformAnimation {
                             timer: Timer::new(Duration::from_millis(100), true),
                             n: sprites.bullet_n,
