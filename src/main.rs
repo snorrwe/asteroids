@@ -38,6 +38,8 @@ const PLAYER_TAG: CollisionTag = CollisionTag {
     dst: 1,
 };
 
+/// Every entity that's part of the game logic (that needs to be deleted on restart)
+struct GameEntity;
 struct Asteroid;
 struct Bullet;
 struct LifeTime(pub Timer);
@@ -153,7 +155,7 @@ fn game_over(sprites: &Sprites, cmd: &mut EntityCommands, mut pos: Vec3) {
                 flip: true,
             },
         ))
-        .insert(GameOver);
+        .insert_bundle((GameOver, GameEntity));
 }
 
 fn handle_collisions(
@@ -163,7 +165,6 @@ fn handle_collisions(
     q_camera_pos: Query<&GlobalTransform, With<Camera3d>>,
     mut score: ResMut<Score>,
     sprites: Res<Sprites>,
-    thrusters: Query<EntityId, With<Thrust>>,
 ) {
     for event in collisions.0.iter() {
         let CollisionEvent {
@@ -194,13 +195,12 @@ fn handle_collisions(
             std::mem::swap(&mut tag1, &mut tag2);
         }
         if tag1 == ASTEROID_TAG && tag2 == PLAYER_TAG {
-            cmd.delete(entity_1);
-            cmd.delete(entity_2);
+            cmd.entity(entity_2)
+                .remove::<Player>()
+                .remove::<CollisionTag>()
+                .remove::<Velocity>();
             let pos = q_camera_pos.single().map(|tr| tr.0.pos).unwrap_or_default();
             game_over(&sprites, cmd.spawn(), pos);
-            for id in thrusters.iter() {
-                cmd.delete(id);
-            }
         }
     }
 }
@@ -263,7 +263,7 @@ fn spawn_asteroid(
             flip: fastrand::bool(),
         },
     ))
-    .insert_bundle((Asteroid, vel))
+    .insert_bundle((Asteroid, vel, GameEntity))
     .insert_bundle(aabb_bundle(
         AABB::around_origin(Vec2::splat(0.8)),
         ASTEROID_TAG,
@@ -369,6 +369,7 @@ fn player_thrust_system(
                     ))))
                     .insert_bundle((
                         Thrust,
+                        GameEntity,
                         UniformAnimation {
                             timer: Timer::new(Duration::from_millis(100), true),
                             n: sprites.thrust_n,
@@ -406,6 +407,21 @@ fn move_system(dt: Res<DeltaTime>, mut q: Query<(&mut Transform, &Velocity)>) {
     });
 }
 
+struct Cooldown(pub Timer);
+
+fn cooldown_system(
+    mut cmd: Commands,
+    dt: Res<DeltaTime>,
+    mut cd: Query<(EntityId, &mut Cooldown)>,
+) {
+    for (id, cd) in cd.iter_mut() {
+        cd.0.update(dt.0);
+        if cd.0.just_finished() {
+            cmd.entity(id).remove::<Cooldown>();
+        }
+    }
+}
+
 struct FireSound;
 fn setup_slash(mut cmd: Commands, mut assets: ResMut<assets::Assets<Audio>>) {
     let bytes = include_bytes!("../assets/slash.mp3");
@@ -421,7 +437,12 @@ fn fire_system(
     sprites: Res<Sprites>,
     mut cmd: Commands,
     q_player: Query<(&GlobalTransform, &Player)>,
+    q_cd: Query<&(), (With<Cooldown>, With<Bullet>)>,
 ) {
+    if q_cd.single().is_some() {
+        return;
+    }
+
     for key in inputs.just_released.iter() {
         if matches!(key, VirtualKeyCode::Space) {
             if let Some(s) = slash.single() {
@@ -447,6 +468,7 @@ fn fire_system(
                             n: sprites.bullet_n,
                         },
                         Velocity(vel.truncate()),
+                        Cooldown(Timer::new(Duration::from_millis(100), false)),
                     ))
                     .insert_bundle(aabb_bundle(
                         AABB::around_origin(Vec2::new(0.25, 0.5)),
@@ -491,6 +513,7 @@ fn spawn_player(cmd: &mut EntityCommands, sprite_handle: Handle<SpriteSheet>) {
         PLAYER_TAG,
     ))
     .insert_bundle((
+        GameEntity,
         Player::default(),
         Velocity::default(),
         RotationTime(Duration::default()),
@@ -575,11 +598,15 @@ fn restart_system(
     assets: Res<Sprites>,
     inputs: Res<KeyBoardInputs>,
     mut score: ResMut<Score>,
+    q_cleanup: Query<EntityId, With<GameEntity>>,
 ) {
     for id in q_game_over.iter() {
         for key in inputs.just_pressed.iter() {
             if let VirtualKeyCode::Space = key {
                 cmd.delete(id);
+                for id in q_cleanup.iter() {
+                    cmd.delete(id);
+                }
                 spawn_player(cmd.spawn(), assets.player.clone());
                 score.score.0 = 0;
             }
@@ -602,6 +629,7 @@ impl Plugin for GamePlugin {
             .add_system(wraparound_system)
             .add_system(update_lifetime)
             .add_system(restart_system)
+            .add_system(cooldown_system)
             .add_system(move_system);
 
         app.stage(Stage::PostUpdate).add_system(handle_collisions);
