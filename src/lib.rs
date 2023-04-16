@@ -154,7 +154,11 @@ fn game_over(sprites: &Sprites, cmd: &mut EntityCommands, mut pos: Vec3) {
                 flip: true,
             },
         ))
-        .insert_bundle((GameOver, GameEntity));
+        .insert_bundle((
+            GameOver,
+            GameEntity,
+            Cooldown(Timer::new(Duration::from_millis(500), false)),
+        ));
 }
 
 fn handle_collisions(
@@ -317,7 +321,7 @@ fn spawn_asteroids_system(
 fn player_rotation_system(
     dt: Res<DeltaTime>,
     inputs: Res<KeyBoardInputs>,
-    mut q: Query<(&mut transform::Transform, &mut RotationTime)>,
+    mut q: Query<(&mut transform::Transform, &mut RotationTime), With<Player>>,
 ) {
     for (tr, rot_time) in q.iter_mut() {
         let mut rot = 0.0;
@@ -604,17 +608,16 @@ fn load_sprite_sheet(
 }
 
 fn restart_system(
-    q_game_over: Query<EntityId, With<GameOver>>,
+    q_game_over: Query<&(), (With<GameOver>, WithOut<Cooldown>)>,
     mut cmd: Commands,
     assets: Res<Sprites>,
     inputs: Res<KeyBoardInputs>,
     mut score: ResMut<Score>,
     q_cleanup: Query<EntityId, With<GameEntity>>,
 ) {
-    for id in q_game_over.iter() {
+    if q_game_over.single().is_some() {
         for key in inputs.just_released.iter() {
             if let VirtualKeyCode::Space = key {
-                cmd.delete(id);
                 for id in q_cleanup.iter() {
                     cmd.delete(id);
                 }

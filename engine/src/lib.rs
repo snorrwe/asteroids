@@ -53,16 +53,20 @@ impl Timer {
 
     pub fn update(&mut self, dt: std::time::Duration) {
         self.just_finished = false;
-        let finished = self.elapsed < self.target;
+        let finished = self.finished();
 
         self.elapsed += dt;
 
-        if !finished && self.elapsed >= self.target {
+        if !finished && self.finished() {
             self.just_finished = true;
             if self.repeat {
                 self.elapsed = Default::default();
             }
         }
+    }
+
+    pub fn finished(&self) -> bool {
+        self.just_finished || self.elapsed >= self.target
     }
 
     pub fn just_finished(&self) -> bool {
