@@ -644,14 +644,10 @@ impl Plugin for GamePlugin {
     }
 }
 
-async fn game() {
+pub async fn game() {
     let mut app = App::default();
     app.add_plugin(DefaultPlugins);
     app.add_plugin(GamePlugin);
     app.add_plugin(CollisionPlugin);
     app.run().await;
-}
-
-fn main() {
-    pollster::block_on(game());
 }

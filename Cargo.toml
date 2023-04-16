@@ -1,10 +1,10 @@
 [package]
-name = "asteroids"
+name = "asteroids-core"
 version = "0.2.0"
 edition = "2021"
 
 [workspace]
-members = ["engine"]
+members = ["engine", "launchers/native"]
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]
@@ -15,7 +15,12 @@ rust-toolchain-version = "1.67.1"
 # CI backends to support (see 'cargo dist generate-ci')
 ci = ["github"]
 # Target platforms to build apps for (Rust target-triple syntax)
-targets = ["x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+    "aarch64-apple-darwin",
+]
 
 [profile.release-with-debug]
 inherits = "release"
@@ -33,5 +38,4 @@ lto = "thin"
 engine = { path = "engine" }
 anyhow = "1.0.70"
 fastrand = "1.9.0"
-pollster = "0.3.0"
 tracing = { version = "0.1.37", features = ["release_max_level_info"] }

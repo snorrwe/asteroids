@@ -12,3 +12,10 @@ cargo build --release
 ## Controls
 
 WAD to move. Space to fire.
+
+## Run
+
+```sh
+cd launchers/native
+cargo r
+```

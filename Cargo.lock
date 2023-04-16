@@ -128,12 +128,19 @@ dependencies = [
 
 [[package]]
 name = "asteroids"
+version = "0.1.0"
+dependencies = [
+ "asteroids-core",
+ "pollster",
+]
+
+[[package]]
+name = "asteroids-core"
 version = "0.2.0"
 dependencies = [
  "anyhow",
  "engine",
  "fastrand",
- "pollster",
  "tracing",
 ]
 
