@@ -134,7 +134,7 @@ dependencies = [
 
 [[package]]
 name = "asteroids"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "asteroids-core",
  "pollster",

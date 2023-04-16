@@ -103,8 +103,8 @@ jobs:
 
       - name: Upload to GH
         run: |
+          cd launchers/wasm
           echo "• uploading to gh dist"
-          cat uploads.txt
           gh release upload ${{ github.ref_name }} asteroids-${{github.ref_name}}-wasm.zip
           echo "✓ uploaded!"
 
