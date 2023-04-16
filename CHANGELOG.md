@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.2] - 2023-04-16
+
+### Miscellaneous Tasks
+
+- Shrink web build size
+
 ## [0.4.0] - 2023-04-16
 
 ### Bug Fixes
