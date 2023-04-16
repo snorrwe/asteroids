@@ -443,13 +443,13 @@ fn fire_system(
         return;
     }
 
-    for key in inputs.just_released.iter() {
-        if matches!(key, VirtualKeyCode::Space) {
-            if let Some(s) = slash.single() {
-                let music = audio.get(s);
-                am.play(music);
-            }
+    for key in inputs.pressed.iter() {
+        if let VirtualKeyCode::Space = key {
             if let Some((tr, player)) = q_player.single() {
+                if let Some(s) = slash.single() {
+                    let music = audio.get(s);
+                    am.play(music);
+                }
                 let rot = tr.0.rot;
                 let v = tr.0.rot * Vec3::Y;
                 let vel = v * (1.0 + player.velocity).min(MAX_VEL + 1.0);
@@ -468,7 +468,7 @@ fn fire_system(
                             n: sprites.bullet_n,
                         },
                         Velocity(vel.truncate()),
-                        Cooldown(Timer::new(Duration::from_millis(100), false)),
+                        Cooldown(Timer::new(Duration::from_millis(200), false)),
                     ))
                     .insert_bundle(aabb_bundle(
                         AABB::around_origin(Vec2::new(0.25, 0.5)),
@@ -601,7 +601,7 @@ fn restart_system(
     q_cleanup: Query<EntityId, With<GameEntity>>,
 ) {
     for id in q_game_over.iter() {
-        for key in inputs.just_pressed.iter() {
+        for key in inputs.just_released.iter() {
             if let VirtualKeyCode::Space = key {
                 cmd.delete(id);
                 for id in q_cleanup.iter() {
