@@ -11,4 +11,4 @@ cargo build --release
 
 ## Controls
 
-WASD to move. Space to fire.
+WAD to move. Space to fire.
