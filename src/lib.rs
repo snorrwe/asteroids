@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use collision::{aabb_bundle, CollisionEvent, CollisionPlugin, CollisionTag, Collisions, AABB};
 use engine::assets::{Assets, Handle};
-use engine::audio::Audio;
 use engine::camera::Camera3d;
 use engine::cecs::commands::EntityCommands;
 use engine::glam::{self, Vec2, Vec3};
@@ -422,22 +421,32 @@ fn cooldown_system(
     }
 }
 
+#[allow(unused)]
 struct FireSound;
-fn setup_slash(mut cmd: Commands, mut assets: ResMut<assets::Assets<Audio>>) {
+
+#[cfg(not(target_family = "wasm"))]
+fn setup_slash(mut cmd: Commands, mut assets: ResMut<assets::Assets<engine::audio::Audio>>) {
     let bytes = include_bytes!("../assets/slash.mp3");
-    let music = Audio::load_audio_bytes(bytes, &mut assets).unwrap();
+    let music = engine::audio::Audio::load_audio_bytes(bytes, &mut assets).unwrap();
     cmd.spawn().insert_bundle((FireSound, music));
 }
 
+#[cfg(target_family = "wasm")]
+fn setup_slash() {}
+
 fn fire_system(
-    slash: Query<&assets::Handle<Audio>, With<FireSound>>,
     inputs: Res<KeyBoardInputs>,
-    audio: Res<assets::Assets<Audio>>,
-    am: Res<engine::audio::AudioManager>,
     sprites: Res<Sprites>,
     mut cmd: Commands,
     q_player: Query<(&GlobalTransform, &Player)>,
     q_cd: Query<&(), (With<Cooldown>, With<Bullet>)>,
+
+    #[cfg(not(target_family = "wasm"))] audio: Res<assets::Assets<engine::audio::Audio>>,
+    #[cfg(not(target_family = "wasm"))] am: Res<engine::audio::AudioManager>,
+    #[cfg(not(target_family = "wasm"))] slash: Query<
+        &assets::Handle<engine::audio::Audio>,
+        With<FireSound>,
+    >,
 ) {
     if q_cd.single().is_some() {
         return;
@@ -446,6 +455,7 @@ fn fire_system(
     for key in inputs.pressed.iter() {
         if let VirtualKeyCode::Space = key {
             if let Some((tr, player)) = q_player.single() {
+                #[cfg(not(target_family = "wasm"))]
                 if let Some(s) = slash.single() {
                     let music = audio.get(s);
                     am.play(music);

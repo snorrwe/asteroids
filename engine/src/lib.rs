@@ -28,7 +28,7 @@ use cecs::prelude::*;
 use tracing::{debug, error};
 
 #[derive(Clone, Copy, Debug)]
-pub struct Time(pub std::time::Instant);
+pub struct Time(pub instant::Instant);
 
 #[derive(Clone, Copy, Debug)]
 pub struct DeltaTime(pub std::time::Duration);
@@ -76,7 +76,7 @@ impl Timer {
 }
 
 fn update_time(mut time: ResMut<Time>, mut dt: ResMut<DeltaTime>) {
-    let now = std::time::Instant::now();
+    let now = instant::Instant::now();
     dt.0 = now - time.0;
     time.0 = now;
 }
@@ -150,13 +150,32 @@ impl App {
     }
 
     pub async fn run(mut self) {
-        tracing_subscriber::fmt::init();
-
         let event_loop = EventLoop::new();
-        let window = WindowBuilder::new()
+        let window = WindowBuilder::new();
+
+        let window = window
             .with_title("Asteroids") // FIXME: allow configuring the window
             .build(&event_loop)
-            .unwrap();
+            .expect("Failed to build window");
+
+        #[cfg(target_family = "wasm")]
+        {
+            // Winit prevents sizing with CSS, so we have to set
+            // the size manually when on web.
+            use winit::dpi::PhysicalSize;
+            window.set_inner_size(PhysicalSize::new(1960 / 2, 1080 / 2));
+
+            use winit::platform::web::WindowExtWebSys;
+            web_sys::window()
+                .and_then(|win| win.document())
+                .and_then(|doc| {
+                    let dst = doc.body()?;
+                    let canvas = web_sys::Element::from(window.canvas());
+                    dst.append_child(&canvas).ok()?;
+                    Some(())
+                })
+                .expect("Couldn't append canvas to document body.");
+        }
 
         let graphics_state = GraphicsState::new(&window).await;
 
@@ -168,6 +187,7 @@ impl App {
 
         event_loop.run(move |event, _, control_flow| match event {
             Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
+                #[cfg(not(target_family = "wasm"))]
                 WindowEvent::CloseRequested
                 | WindowEvent::KeyboardInput {
                     input:
@@ -293,7 +313,7 @@ pub struct DefaultPlugins;
 impl Plugin for DefaultPlugins {
     fn build(self, app: &mut App) {
         // TODO: input plugin, time plugin
-        app.insert_resource(Time(std::time::Instant::now()));
+        app.insert_resource(Time(instant::Instant::now()));
         app.insert_resource(DeltaTime(std::time::Duration::default()));
         app.insert_resource(KeyBoardInputs::default());
 
