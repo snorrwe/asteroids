@@ -76,6 +76,38 @@ jobs:
           HAS_RELEASES=$(cat dist-manifest.json | jq --raw-output ".releases != null")
           echo "has-releases=$HAS_RELEASES" >> "$GITHUB_OUTPUT"
 
+  upload-wasm:
+    needs: create-release
+    if: ${{ needs.create-release.outputs.has-releases == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: 'true'
+      - name: Install Rust
+        run: rustup update 1.67.1 --no-self-update && rustup default 1.67.1
+
+      - name: Install Wasm-Bindgen
+        run: cargo install -f wasm-bindgen-cli --version 0.2.84
+
+      - name: Install Trunk
+        run: cargo install trunk
+
+      - name: Package
+        run: |
+          cd launchers/wasm
+          trunk build
+          zip -r asteroids-${{github.ref_name}}-wasm.zip dist/
+
+      - name: Upload to GH
+        run: |
+          echo "• uploading to gh dist"
+          cat uploads.txt
+          gh release upload ${{ github.ref_name }} asteroids-${{github.ref_name}}-wasm.zip
+          echo "✓ uploaded!"
+
   # Build and packages all the things
   upload-artifacts:
     # Let the initial task tell us to not run (currently very blunt)
