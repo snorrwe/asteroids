@@ -111,8 +111,8 @@ impl GraphicsState {
 
     pub fn render(
         &mut self,
-        cameras: Res<CameraBuffers>,
-        sprite_pipeline: Res<sprite_renderer::SpritePipeline>,
+        cameras: &CameraBuffers,
+        sprite_pipeline: &sprite_renderer::SpritePipeline,
     ) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -241,7 +241,7 @@ fn render_system(
     sprite_pipeline: Res<sprite_renderer::SpritePipeline>,
     cameras: Res<CameraBuffers>,
 ) {
-    let result = state.render(cameras, sprite_pipeline);
+    let result = state.render(&cameras, &sprite_pipeline);
     // Reconfigure the surface if lost
     if let Err(wgpu::SurfaceError::Lost) = result {
         let size = state.size();
