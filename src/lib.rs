@@ -4,6 +4,7 @@ mod collision;
 
 use std::num::Wrapping;
 use std::time::Duration;
+use std::usize;
 
 use collision::{aabb_bundle, CollisionEvent, CollisionPlugin, CollisionTag, Collisions, AABB};
 use engine::assets::{Assets, Handle};
@@ -45,6 +46,7 @@ struct LifeTime(pub Timer);
 
 struct Score {
     pub score: Wrapping<u64>,
+    pub rendered_score: u64,
 }
 
 #[derive(Default)]
@@ -79,6 +81,8 @@ struct Sprites {
     pub player: Handle<SpriteSheet>,
     pub digits: Handle<SpriteSheet>,
 }
+
+struct ScoreDigit;
 
 fn rotator(dt: Res<DeltaTime>, mut q: Query<&mut transform::Transform, With<Asteroid>>) {
     let dt = dt.0.as_secs_f32();
@@ -637,6 +641,52 @@ fn restart_system(
     }
 }
 
+fn render_score(
+    q_camera: Query<EntityId, With<PlayerCamera>>,
+    q_scores: Query<EntityId, With<ScoreDigit>>,
+    mut score: ResMut<Score>,
+    mut cmd: Commands,
+    assets: Res<Sprites>,
+) {
+    if score.score.0 == score.rendered_score {
+        return;
+    }
+    for id in q_scores.iter() {
+        cmd.delete(id);
+    }
+    score.rendered_score = score.score.0;
+    let Some(camera_id) = q_camera.single() else {
+        return;
+    };
+
+    // layouting
+    let mut s = score.score.0;
+    let mut digits = Vec::with_capacity(4); // TODO: smallvec
+    digits.push(s % 10);
+    s /= 10;
+    while s > 0 {
+        digits.push(s % 10);
+        s /= 10;
+    }
+    let mut x_offset = -45.0;
+    for digit in digits {
+        transform::spawn_child(camera_id, &mut cmd, |cmd| {
+            cmd.insert_bundle(transform_bundle(Transform::from_position(Vec3::new(
+                x_offset, -45.0, -5.0,
+            ))))
+            .insert_bundle(sprite_sheet_bundle(
+                assets.digits.clone(),
+                SpriteInstance {
+                    index: digit as u32,
+                    flip: true,
+                },
+            ))
+            .insert_bundle((ScoreDigit,));
+        });
+        x_offset += 1.0;
+    }
+}
+
 struct GamePlugin;
 
 impl Plugin for GamePlugin {
@@ -653,6 +703,7 @@ impl Plugin for GamePlugin {
             .add_system(update_lifetime)
             .add_system(restart_system)
             .add_system(cooldown_system)
+            .add_system(render_score)
             .add_system(move_system);
 
         app.stage(Stage::PostUpdate).add_system(handle_collisions);
@@ -661,7 +712,10 @@ impl Plugin for GamePlugin {
             .add_startup_system(setup_player.after(setup_sprite_sheets))
             .add_startup_system(setup_slash);
 
-        app.insert_resource(Score { score: Wrapping(0) });
+        app.insert_resource(Score {
+            score: Wrapping(0),
+            rendered_score: u64::MAX,
+        });
         app.insert_resource(Sprites::default());
     }
 }
