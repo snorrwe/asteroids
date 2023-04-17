@@ -77,6 +77,7 @@ struct Sprites {
     pub asteroid_n: u32,
     pub game_over_sheet: Handle<SpriteSheet>,
     pub player: Handle<SpriteSheet>,
+    pub digits: Handle<SpriteSheet>,
 }
 
 fn rotator(dt: Res<DeltaTime>, mut q: Query<&mut transform::Transform, With<Asteroid>>) {
@@ -584,6 +585,14 @@ fn setup_sprite_sheets(
             &mut assets,
         ),
         thrust_n: 4,
+        digits: load_sprite_sheet(
+            &graphics_state,
+            include_bytes!("../assets/digits.png"),
+            Vec2::splat(16.0),
+            10,
+            "digits",
+            &mut assets,
+        ),
     };
 }
 
