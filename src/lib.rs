@@ -369,29 +369,29 @@ fn player_thrust_system(
                 }
             }
         }
-        for key in inputs.just_pressed.iter() {
-            if let VirtualKeyCode::W = key {
-                transform::spawn_child(id, &mut cmd, |cmd| {
-                    cmd.insert_bundle(transform_bundle(Transform::from_position(Vec3::new(
-                        0.0, -0.5, 0.1,
-                    ))))
-                    .insert_bundle((
-                        Thrust,
-                        GameEntity,
-                        UniformAnimation {
-                            timer: Timer::new(Duration::from_millis(100), true),
-                            n: sprites.thrust_n,
-                        },
-                    ))
-                    .insert_bundle(sprite_renderer::sprite_sheet_bundle(
-                        sprites.thrust_sheet.clone(),
-                        None,
-                    ));
-                });
-            }
-        }
         if !inputs.pressed.iter().any(|k| match k {
             VirtualKeyCode::W => {
+                if thrusters.is_empty() {
+                    transform::spawn_child(id, &mut cmd, |cmd| {
+                        cmd.insert_bundle(transform_bundle(Transform::from_position(Vec3::new(
+                            0.0, -0.5, 0.1,
+                        ))))
+                        .insert_bundle((
+                            Thrust,
+                            GameEntity,
+                            UniformAnimation {
+                                timer: Timer::new(Duration::from_millis(100), true),
+                                n: sprites.thrust_n,
+                            },
+                        ))
+                        .insert_bundle(
+                            sprite_renderer::sprite_sheet_bundle(
+                                sprites.thrust_sheet.clone(),
+                                None,
+                            ),
+                        );
+                    });
+                }
                 // max acceleration in 0.3 seconds
                 player.acceleration = (player.acceleration + dt * MAX_ACC * 3.0).min(MAX_ACC);
                 player.velocity = (player.velocity + player.acceleration * dt).min(MAX_VEL);
