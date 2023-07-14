@@ -217,21 +217,9 @@ struct AssetEntry<T> {
 }
 
 fn gc_assets<T: 'static>(mut assets: ResMut<Assets<T>>) {
-    let to_remove = assets
+    assets
         .assets
-        .iter()
-        .filter(|(_id, val)| val.handle.data().data_references.load(Ordering::Relaxed) == 0)
-        .map(|(id, _)| *id)
-        .collect::<Vec<_>>();
-
-    for id in to_remove {
-        debug!(
-            id = tracing::field::debug(id),
-            ty = std::any::type_name::<T>(),
-            "Asset is no longer in use, freeing"
-        );
-        assets.assets.remove(&id);
-    }
+        .retain(|_id, val| val.handle.data().data_references.load(Ordering::Relaxed) > 0);
 }
 
 pub struct AssetsPlugin<T> {
