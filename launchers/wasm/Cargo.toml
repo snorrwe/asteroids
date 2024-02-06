@@ -14,5 +14,5 @@ opt-level = "s"
 [dependencies]
 asteroids-core = { path = "../.." }
 tracing-wasm = "0.2.1"
-wasm-bindgen-futures = "0.4.34"
+wasm-bindgen-futures = "0.4.40"
 instant = { version = "0.1.12", features = ["wasm-bindgen"] }

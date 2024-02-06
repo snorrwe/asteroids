@@ -1,9 +1,9 @@
-use engine::cecs::{
+use brengin::cecs::{
     prelude::{Bundle, EntityId, ResMut},
     query::Query,
     systems::IntoSystem,
 };
-use engine::glam::Vec2;
+use brengin::glam::Vec2;
 
 use crate::{transform::GlobalTransform, Plugin};
 

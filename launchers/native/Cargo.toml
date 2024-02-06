@@ -9,4 +9,4 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 asteroids-core = { path = "../.." }
 pollster = "0.3.0"
-tracing-subscriber = "0.3.16"
+tracing-subscriber = "0.3.18"

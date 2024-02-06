@@ -6,21 +6,22 @@ use std::num::Wrapping;
 use std::time::Duration;
 use std::usize;
 
-use collision::{aabb_bundle, CollisionEvent, CollisionPlugin, CollisionTag, Collisions, AABB};
-use engine::assets::{Assets, Handle};
-use engine::camera::Camera3d;
-use engine::cecs::commands::EntityCommands;
-use engine::glam::{self, Vec2, Vec3};
-use engine::renderer::sprite_renderer::{self, sprite_sheet_bundle, SpriteInstance, SpriteSheet};
-use engine::renderer::{self, GraphicsState};
-use engine::transform::{self, transform_bundle, GlobalTransform, Transform};
-use engine::{
-    assets, App, DefaultPlugins, DeltaTime, KeyBoardInputs, Plugin, Stage, Timer, VirtualKeyCode,
+use brengin::assets::{Assets, Handle};
+use brengin::camera::Camera3d;
+use brengin::cecs::commands::EntityCommands;
+use brengin::glam::{self, Vec2, Vec3};
+use brengin::renderer::sprite_renderer::{self, sprite_sheet_bundle, SpriteInstance, SpriteSheet};
+use brengin::renderer::{self, GraphicsState};
+use brengin::transform::{self, transform_bundle, GlobalTransform, Transform};
+use brengin::{
+    assets, winit::event::VirtualKeyCode, App, DefaultPlugins, DeltaTime, KeyBoardInputs, Plugin,
+    Stage, Timer,
 };
+use collision::{aabb_bundle, CollisionEvent, CollisionPlugin, CollisionTag, Collisions, AABB};
 
-use engine::cecs::prelude::*;
+use brengin::cecs::prelude::*;
 
-use engine::quat_ext::{PrimaryAxis, RotationExtension};
+use brengin::quat_ext::{PrimaryAxis, RotationExtension};
 
 const MAP_RADIUS: f32 = 25.0;
 const TARGET: usize = 100;
@@ -434,9 +435,9 @@ fn cooldown_system(
 struct FireSound;
 
 #[cfg(not(target_family = "wasm"))]
-fn setup_slash(mut cmd: Commands, mut assets: ResMut<assets::Assets<engine::audio::Audio>>) {
+fn setup_slash(mut cmd: Commands, mut assets: ResMut<assets::Assets<brengin::audio::Audio>>) {
     let bytes = include_bytes!("../assets/slash.mp3");
-    let music = engine::audio::Audio::load_audio_bytes(bytes, &mut assets).unwrap();
+    let music = brengin::audio::Audio::load_audio_bytes(bytes, &mut assets).unwrap();
     cmd.spawn().insert_bundle((FireSound, music));
 }
 
@@ -450,10 +451,10 @@ fn fire_system(
     q_player: Query<(&GlobalTransform, &Player)>,
     q_cd: Query<&(), (With<Cooldown>, With<Bullet>)>,
 
-    #[cfg(not(target_family = "wasm"))] audio: Res<assets::Assets<engine::audio::Audio>>,
-    #[cfg(not(target_family = "wasm"))] am: Res<engine::audio::AudioManager>,
+    #[cfg(not(target_family = "wasm"))] audio: Res<assets::Assets<brengin::audio::Audio>>,
+    #[cfg(not(target_family = "wasm"))] am: Res<brengin::audio::AudioManager>,
     #[cfg(not(target_family = "wasm"))] slash: Query<
-        &assets::Handle<engine::audio::Audio>,
+        &assets::Handle<brengin::audio::Audio>,
         With<FireSound>,
     >,
 ) {
