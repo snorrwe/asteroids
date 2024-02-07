@@ -31,6 +31,9 @@ installers = []
 # Publish jobs to run in CI
 pr-run-mode = "upload"
 
+[workspace.metadata.dist.dependencies.apt]
+libasound2-dev = '*'
+
 [profile.release-with-debug]
 inherits = "release"
 debug = true
