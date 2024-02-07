@@ -279,7 +279,7 @@ dependencies = [
 [[package]]
 name = "brengin"
 version = "0.1.0"
-source = "git+https://github.com/snorrwe/brengin#f033859f15dd7d6783158813057d5b96d42c8954"
+source = "git+https://github.com/snorrwe/brengin#c3b04319219417591a905a553a07209828020c83"
 dependencies = [
  "anyhow",
  "bytemuck",
