@@ -15,21 +15,23 @@ members = ["launchers/native", "launchers/wasm"]
 [workspace.metadata.dist]
 # The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)
 cargo-dist-version = "0.9.0"
-# The preferred Rust toolchain to use in CI (rustup toolchain syntax)
-rust-toolchain-version = "1.67.1"
 # CI backends to support
 ci = ["github"]
+allow-dirty = ["ci"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = [
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
-    "x86_64-unknown-linux-musl",
+    "x86_64-unknown-linux-gnu",
     "x86_64-pc-windows-msvc",
 ]
 # The installers to generate for each app
 installers = []
 # Publish jobs to run in CI
-pr-run-mode = "plan"
+pr-run-mode = "upload"
+
+[workspace.metadata.dist.dependencies.apt]
+libasound2-dev = '*'
 
 [profile.release-with-debug]
 inherits = "release"
@@ -46,7 +48,6 @@ lto = "thin"
 anyhow = "1.0.79"
 fastrand = "2.0.1"
 tracing = { version = "0.1.40", features = ["release_max_level_info"] }
-brengin = { git = "https://github.com/snorrwe/brengin" }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 brengin = { git = "https://github.com/snorrwe/brengin" }
